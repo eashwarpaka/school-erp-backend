@@ -1,0 +1,6 @@
+// Vercel serverless entry point - wraps the Express app
+require("dotenv").config();
+const app = require("../src/app");
+
+module.exports = app;
+
