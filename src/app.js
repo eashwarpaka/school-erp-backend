@@ -54,6 +54,29 @@ const limiter = rateLimit({
 });
 app.use("/api", limiter);
 
+// ── Health Check (Public) — registered FIRST, no auth middleware ──
+// Handles both /api/health (direct) and /health (if Vercel strips /api prefix)
+app.get(["/api/health", "/health"], async (req, res) => {
+  const pool = require("./config/db");
+  try {
+    const result = await pool.query(
+      "SELECT current_database() AS database, NOW() AS server_time"
+    );
+    res.json({
+      success: true,
+      message: "Smart School ERP API is running",
+      database: result.rows[0].database,
+      serverTime: result.rows[0].server_time,
+    });
+  } catch (error) {
+    console.error("Health check failed:", error.message);
+    res.status(503).json({
+      success: false,
+      message: "Database unavailable: " + error.message,
+    });
+  }
+});
+
 // ── Route Imports ───────────────────────────────────
 const authRoutes = require("./routes/auth");
 const tenantRoutes = require("./routes/tenant");
@@ -127,28 +150,6 @@ app.use("/api/security", auditRoutes);
 // NOTE: Removed app.use("/api", communicationRoutes) and app.use("/api", auditRoutes)
 // because those catch-all mounts intercept /api/health and all other routes via
 // the authenticateToken middleware inside those routers.
-
-// ── Health Check (Public) ───────────────────────────
-app.get("/api/health", async (req, res) => {
-  const pool = require("./config/db");
-  try {
-    const result = await pool.query(
-      "SELECT current_database() AS database, NOW() AS server_time"
-    );
-    res.json({
-      success: true,
-      message: "Smart School ERP API is running",
-      database: result.rows[0].database,
-      serverTime: result.rows[0].server_time,
-    });
-  } catch (error) {
-    console.error("Health check failed:", error.message);
-    res.status(503).json({
-      success: false,
-      message: "Database unavailable",
-    });
-  }
-});
 
 // ── Unknown Route Handler ───────────────────────────
 app.use((req, res) => {
